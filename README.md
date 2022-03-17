@@ -23,7 +23,7 @@ You can then specify either `side-by-side`, which will render code and image sid
 ### 2. install this plugin
 
 **Variant 1**
-Download and unzip release into `<path_to_your_vult>/.obsidian/plugins/obsidian-tikz-renderer`.
+Go to the releases page, download the files and place them in `<path_to_your_vult>/.obsidian/plugins/obsidian-tikz-renderer`.
 
 **Variant 2**
 Clone the repo into `<path_to_your_vult>/.obsidian/plugins`, build it with `npm i && npm run build` and activate it in the settings.
