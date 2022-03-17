@@ -17,7 +17,11 @@ This is a quick write-up of a possible way to render tikz graphics in Obsidian.
 
 ### 2. install this plugin
 
-Clone the repo into `<path_to_your_vult>/.obsidian/plugins` and activate it in the settings.
+**Variant 1**
+Download and unzip release into `<path_to_your_vult>/.obsidian/plugins/obsidian-tikz-renderer`.
+
+**Variant 2**
+Clone the repo into `<path_to_your_vult>/.obsidian/plugins`, build it with `npm i && npm run build` and activate it in the settings.
 
 ### 3. Set the latex command correctly
 
