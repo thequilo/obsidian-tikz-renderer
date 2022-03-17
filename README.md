@@ -2,6 +2,7 @@
 
 This is a quick write-up of a possible way to render tikz graphics in Obsidian.
 
+![tikz_obsidian_logo](https://user-images.githubusercontent.com/25043715/158750976-109bea4e-ce28-4922-a066-2e184c4c950c.gif)
 
 
 ## Installation
