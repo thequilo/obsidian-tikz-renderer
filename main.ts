@@ -15,11 +15,29 @@ import * as temp from 'temp';
 interface PluginSettings {
 	latexCommand: string;
 	defaultRenderMode: string;
+	preamble: string;
+	timeout: number;
 }
+
+const OBSIDIAN_LOGO = "\\definecolor{c1}{HTML}{34208c}\n" +
+	"\\definecolor{c2}{HTML}{af9ff4}\n" +
+	"\\definecolor{c3}{HTML}{4a37a0}\n" +
+	"\\definecolor{c4}{HTML}{af9ff4}\n" +
+	"\\definecolor{g1}{HTML}{6c56cc}\n" +
+	"\\definecolor{g2}{HTML}{9785e5}\n" +
+	"\\tikzset{every path/.style={rounded corners=0.2}}\n" +
+	"\n" +
+	"\\draw[fill=c1] (0.4461,0) -- (0.1291, -0.1752) -- (0, -0.4545) -- (0.1957, -0.9047) -- (0.4735, -1) -- (0.5244, -0.898) -- (0.63, -0.2639) -- cycle;\n" +
+	"\\draw[fill=c2] (0.63, -0.2639) -- (0.4461, 0) -- (0.4344, -0.1441) -- cycle;\n" +
+	"\\draw[fill=c4] (0.1643, -0.357) -- (0.1957, -0.9047) -- (0.4735, -1) -- cycle;\n" +
+	"\\draw[left color=g1, right color=g2] (0.63, -0.2639) -- (0.4344, -0.1441) -- (0.1643, -0.357) -- (0.4735, -1.00) -- (0.5244, -0.898) --  cycle;\n" +
+	"\\draw[fill=c3] (0.4344, -0.1441) -- (0.4461, 0) --  (0.1291, -0.1752) -- (0.1643, -0.357) -- cycle;"
 
 const DEFAULT_SETTINGS: PluginSettings = {
 	latexCommand: 'pdflatex -interaction=nonstopmode -halt-on-error -shell-escape "{input}"; pdf2svg input.pdf "{output}"',
-	defaultRenderMode: "image_only"
+	defaultRenderMode: "image_only",
+	preamble: "",
+	timeout: 10000,	// 10s
 }
 
 export default class MyPlugin extends Plugin {
@@ -28,13 +46,7 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		console.log("Registering markdown post processor")
-
-		// hide annotation json blocks
-
-
 		// tikz code blocks
-		// TODO: render in preview mode
 		this.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
 			// Get code blocks
 			const codeblocks = el.querySelectorAll("pre");
@@ -92,6 +104,7 @@ export default class MyPlugin extends Plugin {
 
 		// Build latex source code with standalone class
 		const latex_source = `\\documentclass[tikz]{standalone}
+${this.settings.preamble}
 \\begin{document}
 \\begin{tikzpicture}
   ${source}
@@ -117,7 +130,7 @@ export default class MyPlugin extends Plugin {
 						.replace('{input}', 'input.tex')
 						.replace('{output}', 'output.svg');
 
-					exec(command, {cwd: dirPath}, (err: ExecException | null) => {
+					exec(command, {cwd: dirPath, timeout: this.settings.timeout}, (err: ExecException | null) => {
 						if (err) reject(err);
 						fs.readFile(path.join(dirPath, 'output.svg'), function (err: ErrnoException | null, data: Buffer) {
 							if (err) reject(err)
@@ -157,15 +170,16 @@ class SettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', {text: 'Settings for tikz renderer'});
 
-		new Setting(containerEl)
-			.setName('latex command')
+		const latexCommandText = new Setting(containerEl)
+			.setName('LaTeX command')
 			.setDesc('Command executed to render latex to svg')
-			.addTextArea(text => text
-				.setValue(this.plugin.settings.latexCommand)
-				.onChange(async (value) => {
-					this.plugin.settings.latexCommand = value;
-					await this.plugin.saveSettings();
-				}));
+			.settingEl.parentElement.createEl('input', {type: 'text'})
+		latexCommandText.addClass('tikz-preview-settings-latex-command')
+		latexCommandText.value = this.plugin.settings.latexCommand;
+		latexCommandText.onchange = async () => {
+			this.plugin.settings.latexCommand = latexCommandText.value;
+			await this.plugin.saveSettings();
+		}
 
 		new Setting(containerEl)
 			.setName("Default Render Mode")
@@ -178,5 +192,58 @@ class SettingTab extends PluginSettingTab {
 					this.plugin.settings.defaultRenderMode = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// TODO: How do I make this a CodeMirror text area in latex mode?
+		const preambleSetting = new Setting(containerEl)
+			.setName("Preamble")
+			.setDesc(
+				"Preamble used for rendering with LaTeX. Can be used to load latex packages or to define tikz " +
+				"styles that are available in all tikz code blocks"
+			)
+		const preambleTextArea = preambleSetting.settingEl.parentElement.createEl('textarea');
+		preambleTextArea.value = this.plugin.settings.preamble;
+		preambleTextArea.onchange = async () => {
+			this.plugin.settings.preamble = preambleTextArea.value;
+			await this.plugin.saveSettings();
+		}
+		preambleTextArea.addClass('tikz-renderer-settings-preamble');
+		console.log('this.plugin.settings')
+		console.log(this.plugin.app)
+		new Setting(containerEl)
+			.setName("Timeout")
+			.setDesc("Timeout for one LaTeX render call")
+			.addText(text => text
+				.setValue(this.plugin.settings.timeout.toString())
+				.onChange(async (value) => {
+					const parsedValue = parseInt(value);
+					if (parsedValue === undefined) return;
+					this.plugin.settings.timeout = parsedValue;
+					await this.plugin.saveSettings();
+				}))
+
+		console.log("Setting")
+		let outcontainer: HTMLElement;
+		const s = new Setting(containerEl)
+			.setName("Test Settings!")
+			.setDesc("This test renders the Obsidian Logo as tikz to check if the configuration works and LaTeX is " +
+				"available on the system.")
+			.addButton(button => button
+				.setButtonText("Test Settings")
+				.onClick(() => {
+					console.log('Testing tikz renderer settings')
+					outcontainer.removeClasses(['tikz-preview-test-ok', 'tikz-preview-test-failed'])
+					outcontainer.innerText = "Rendering tikz..."
+					this.plugin.renderTikz2SVG(OBSIDIAN_LOGO).then((o: string) => {
+						outcontainer.innerHTML = o
+						outcontainer.addClass('tikz-preview-test-ok');
+					}).catch(e => {
+						outcontainer.innerText = e.toString();
+						outcontainer.addClass('tikz-preview-test-failed');
+					});
+				}));
+		outcontainer = s.settingEl.parentElement.createEl('div');
+		outcontainer.innerText = 'Click "TestSettings" to render test image...';
+		outcontainer.addClass('tikz-preview-test');
+		console.log(s);
 	}
 }

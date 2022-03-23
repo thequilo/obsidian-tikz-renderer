@@ -27,3 +27,26 @@
 	width: 100%;
 	text-align: center;
 }
+
+.tikz-preview-test {
+	width: 100%;
+	text-align: center;
+	align-content: center;
+}
+
+.tikz-preview-test-ok {
+	background-color: lightgreen;
+}
+
+.tikz-preview-test-failed {
+	background-color: lightcoral;
+}
+
+.tikz-renderer-settings-preamble {
+	width: 100%;
+	height: 200px;
+}
+
+.tikz-preview-settings-latex-command {
+	width: 100%;
+}
