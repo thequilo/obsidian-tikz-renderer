@@ -1,16 +1,16 @@
-import {
-	App,
-	MarkdownPostProcessorContext,
-	Plugin,
-	PluginSettingTab,
-	Setting
-} from 'obsidian';
-import ErrnoException = NodeJS.ErrnoException;
+import {App, MarkdownPostProcessorContext, Plugin, PluginSettingTab, Setting} from 'obsidian';
 
 import * as fs from 'fs';
 import * as path from 'path';
 import {exec, ExecException} from 'child_process';
 import * as temp from 'temp';
+import {keymap} from '@codemirror/view';
+import {basicSetup, EditorState, EditorView} from "@codemirror/basic-setup";
+import {indentWithTab} from "@codemirror/commands"
+import ErrnoException = NodeJS.ErrnoException;
+
+// import {tex} from "@codemirror/lang-tex";
+
 
 interface PluginSettings {
 	latexCommand: string;
@@ -34,10 +34,21 @@ const OBSIDIAN_LOGO = "\\definecolor{c1}{HTML}{34208c}\n" +
 	"\\draw[fill=c3] (0.4344, -0.1441) -- (0.4461, 0) --  (0.1291, -0.1752) -- (0.1643, -0.357) -- cycle;"
 
 const DEFAULT_SETTINGS: PluginSettings = {
-	latexCommand: 'pdflatex -interaction=nonstopmode -halt-on-error -shell-escape "{input}"; pdf2svg input.pdf "{output}"',
+	latexCommand: 'pdflatex -interaction=nonstopmode -halt-on-error -shell-escape "{input}" && pdf2svg input.pdf "{output}"',
 	defaultRenderMode: "image_only",
-	preamble: "",
+	preamble: "% Put any LaTeX commands here, e.g., \\usetikzlibrary{calc}, \\usepackage{xcolor} or \\tikzset{...}",
 	timeout: 10000,	// 10s
+}
+
+function formatError(err) {
+	let html = '<div>'
+	if (err.signal === 'SIGTERM') {
+		html += 'Child process got terminated. Is the timeout large enough?'
+	} else {
+		html += err.toString();
+	}
+	html += '</div>'
+	return html
 }
 
 export default class MyPlugin extends Plugin {
@@ -87,11 +98,7 @@ export default class MyPlugin extends Plugin {
 				d.innerHTML = '<div class="tikz-preview-rendering">rendering tikz...</div>';
 
 				// Render!
-				this.renderTikz2SVG(payload).then((data: string) => {
-					d.innerHTML = data
-				}).catch(err => {
-					d.innerText = err.toString()
-				});
+				this.renderTikzToContainer(payload, d);
 			}
 		}, 100);
 
@@ -113,6 +120,18 @@ ${this.settings.preamble}
 
 		// Render latex
 		return this.renderLatex2SVG(latex_source);
+	}
+
+	renderTikzToContainer(source: string, container: HTMLElement) {
+		return new Promise<void>((resolve, reject) => {
+			this.renderTikz2SVG(source).then((data: string) => {
+				container.innerHTML = data;
+				resolve();
+			}).catch(err => {
+				container.innerHTML = formatError(err);
+				reject(err);
+			});
+		})
 	}
 
 	renderLatex2SVG(source: string) {
@@ -170,6 +189,10 @@ class SettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', {text: 'Settings for tikz renderer'});
 
+		/*
+		 * LaTeX Command
+		 */
+		// This seems hacky, but I don't know a better way to get the text input below the name & description
 		const latexCommandText = new Setting(containerEl)
 			.setName('LaTeX command')
 			.setDesc('Command executed to render latex to svg')
@@ -181,6 +204,9 @@ class SettingTab extends PluginSettingTab {
 			await this.plugin.saveSettings();
 		}
 
+		/*
+		 * Render mode
+		 */
 		new Setting(containerEl)
 			.setName("Default Render Mode")
 			.setDesc("Render Mode. You might have to refresh the rendered output for this to have an effect.")
@@ -193,25 +219,40 @@ class SettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
-		// TODO: How do I make this a CodeMirror text area in latex mode?
+		/*
+		 * Preamble
+		 * TODO: How do I enable syntax highlighting for LaTeX?
+		 * TODO: Maybe: Only save settings when editor focus is lost (I don't know how)
+		 */
 		const preambleSetting = new Setting(containerEl)
 			.setName("Preamble")
 			.setDesc(
-				"Preamble used for rendering with LaTeX. Can be used to load latex packages or to define tikz " +
-				"styles that are available in all tikz code blocks"
+				"Preamble used for rendering with LaTeX. Can be used to load latex packages or tikz libraries, " +
+				"or to define tikz styles that are available in all tikz code blocks."
 			)
-		const preambleTextArea = preambleSetting.settingEl.parentElement.createEl('textarea');
-		preambleTextArea.value = this.plugin.settings.preamble;
-		preambleTextArea.onchange = async () => {
-			this.plugin.settings.preamble = preambleTextArea.value;
-			await this.plugin.saveSettings();
-		}
-		preambleTextArea.addClass('tikz-renderer-settings-preamble');
-		console.log('this.plugin.settings')
-		console.log(this.plugin.app)
+
+		new EditorView({
+			state: EditorState.create({
+				doc: this.plugin.settings.preamble,
+				extensions: [
+					basicSetup,
+					keymap.of([indentWithTab]),
+					EditorView.updateListener.of(async update => {
+						console.log('editor updated', update.state.doc.toString(), update)
+						this.plugin.settings.preamble = update.state.doc.toString();
+						await this.plugin.saveSettings();
+					})
+				],
+			}),
+			parent: preambleSetting.settingEl.parentElement
+		})
+
+		/*
+		 * Timeout
+		 */
 		new Setting(containerEl)
 			.setName("Timeout")
-			.setDesc("Timeout for one LaTeX render call")
+			.setDesc("Timeout for one LaTeX render call, in ms.")
 			.addText(text => text
 				.setValue(this.plugin.settings.timeout.toString())
 				.onChange(async (value) => {
@@ -221,29 +262,27 @@ class SettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}))
 
-		console.log("Setting")
-		let outcontainer: HTMLElement;
+		/*
+		 * Test
+		 */
 		const s = new Setting(containerEl)
 			.setName("Test Settings!")
 			.setDesc("This test renders the Obsidian Logo as tikz to check if the configuration works and LaTeX is " +
-				"available on the system.")
-			.addButton(button => button
+				"available on the system.");
+		const outcontainer = s.settingEl.parentElement.createEl('div');
+		outcontainer.innerText = 'Click "TestSettings" to render test image...';
+		outcontainer.addClass('tikz-preview-test');
+		s.addButton(button => button
 				.setButtonText("Test Settings")
 				.onClick(() => {
 					console.log('Testing tikz renderer settings')
 					outcontainer.removeClasses(['tikz-preview-test-ok', 'tikz-preview-test-failed'])
 					outcontainer.innerText = "Rendering tikz..."
-					this.plugin.renderTikz2SVG(OBSIDIAN_LOGO).then((o: string) => {
-						outcontainer.innerHTML = o
+					this.plugin.renderTikzToContainer(OBSIDIAN_LOGO, outcontainer).then(() => {
 						outcontainer.addClass('tikz-preview-test-ok');
-					}).catch(e => {
-						outcontainer.innerText = e.toString();
+					}).catch(() => {
 						outcontainer.addClass('tikz-preview-test-failed');
 					});
 				}));
-		outcontainer = s.settingEl.parentElement.createEl('div');
-		outcontainer.innerText = 'Click "TestSettings" to render test image...';
-		outcontainer.addClass('tikz-preview-test');
-		console.log(s);
 	}
 }
