@@ -23,10 +23,10 @@ You can then specify either `side-by-side`, which will render code and image sid
 ### 2. install this plugin
 
 **Variant 1**
-Go to the releases page, download the files and place them in `<path_to_your_vult>/.obsidian/plugins/obsidian-tikz-renderer`.
+Go to the releases page, download the files and place them in `<path_to_your_vault>/.obsidian/plugins/obsidian-tikz-renderer`.
 
 **Variant 2**
-Clone the repo into `<path_to_your_vult>/.obsidian/plugins`, build it with `npm i && npm run build` and activate it in the settings.
+Clone the repo into `<path_to_your_vault>/.obsidian/plugins`, build it with `npm i && npm run build` and activate it in the settings.
 
 ### 3. Set the latex command correctly
 
@@ -37,16 +37,16 @@ Go to the settings of the tikz render plugin and check if the render command is 
 ### Done
 
 - Render source code blocks marked with `tikz render` in preview mode
+- Support a custom preamble (in the settings) to enable tikz libraries and define global tikz styles
 
 ### TODO / Nice to have in the future
 
-- Support tikz libraries and global custom styles
 - Side-by-side rendering in live-preview to see the image while typing (integration with CodeMirror?)
 - Better styling (My CSS skills suck)
 - Render `latex` source code blocks (general LaTeX, not just tikz)
 - Better error / log messages when build fails
 - Test on Windows and Mac
-- `tikz style` (or similar) code blocks to define file-local styles
+- `tikz style` (or similar) code blocks to define file-local styles, or a similar entry in the fontmatter
 
 ## Contributing
 
