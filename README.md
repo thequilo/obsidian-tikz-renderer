@@ -16,9 +16,8 @@ You can then specify either `side-by-side`, which will render code and image sid
 
 ### 1. Install latex and pdf2svg
 
-**On Linux**
-
-**On Windows**
+ - LaTeX: https://www.latex-project.org/get/
+ - pdf2svg: https://github.com/dawbarton/pdf2svg (for Windows: https://github.com/jalios/pdf2svg-windows)
 
 ### 2. install this plugin
 
@@ -31,6 +30,10 @@ Clone the repo into `<path_to_your_vault>/.obsidian/plugins`, build it with `npm
 ### 3. Set the latex command correctly
 
 Go to the settings of the tikz render plugin and check if the render command is correct.
+
+**Linux:** The default should work if the paths are set correctly
+
+**Windows:** For safety, use the full paths to the executables, e.g., `C:\texlive\2021\bin\win32\pdflatex.exe -interaction=nonstopmode -halt-on-error -shell-escape "{input}" && C:\pdf2svg-windows-1.0\dist-64bits\pdf2svg.exe input.pdf "{output}"`.
 
 ## Features
 
