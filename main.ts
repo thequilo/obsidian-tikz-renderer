@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: PluginSettings = {
 	timeout: 10000,	// 10s
 }
 
-function formatError(err) {
+function formatError(err: any) {
 	let html = '<div>'
 	if (err.signal === 'SIGTERM') {
 		html += 'Child process got terminated. Is the timeout large enough?'
