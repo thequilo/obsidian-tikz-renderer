@@ -1,4 +1,4 @@
-import {App, MarkdownPostProcessorContext, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -49,8 +49,19 @@ function formatError(err) {
 	return html
 }
 
+const COMMENT_PATTERN = /^\s*%+\s*otr-(?<name>(\S)+)\s*(?<value>.*)/
+
 export default class MyPlugin extends Plugin {
 	settings: PluginSettings;
+
+	parseSpecialComments(source: string) {
+		let args = {}
+		for (const line of source.split('\n')){
+			const m = COMMENT_PATTERN.exec(line);
+			if (m) args[m.groups.name] = m.groups.value;
+		}
+		return args
+	}
 
 	async onload() {
 		// Add an alias for "tikz" and "tikz-render" so that syntax highlighting works in tikz-render code blocks
@@ -58,7 +69,7 @@ export default class MyPlugin extends Plugin {
 
 		await this.loadSettings();
 
-		this.registerMarkdownCodeBlockProcessor('tikz-render', (source, el, ctx) => {
+		this.registerMarkdownCodeBlockProcessor('tikz-render', (source, el) => {
 			el.addClass('tikz-preview', 'tikz-preview-image-only');
 			el.innerHTML = '<div class="tikz-preview-rendering">rendering tikz...</div>';
 			this.renderTikzToContainer(source, el);
@@ -84,9 +95,23 @@ ${this.settings.preamble}
 	}
 
 	renderTikzToContainer(source: string, container: HTMLElement) {
+		const args = this.parseSpecialComments(source);
 		return new Promise<void>((resolve, reject) => {
-			this.renderTikz2SVG(source).then((data: string) => {
-				container.innerHTML = data;
+			this.renderTikz(source).then((data: string) => {
+				container.innerHTML = ''
+				const img = container.createEl('img')
+				container.addClass('tikz-render-container')
+				img.src = data;
+				if (args.width) img.style.width = args.width;
+				if (args.height) img.style.height = args.height;
+				if (args['side-by-side'] !== undefined){
+					const pre = container.createEl('pre')
+					const code_ = pre.createEl('code')
+					container.addClass('tikz-preview', 'tikz-preview-side-by-side');
+					code_.addClass('language-latex')
+					code_.innerHTML = source
+					window.Prism.highlightElement(code_);
+				}
 				resolve();
 			}).catch(err => {
 				container.innerHTML = formatError(err);
