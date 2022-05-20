@@ -107,7 +107,7 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new SettingTab(this.app, this));
 	}
 
-	renderTikz2SVG(source: string) {
+	renderTikz(source: string) {
 
 		// Build latex source code with standalone class
 		const latex_source = `\\documentclass[tikz]{standalone}
@@ -119,7 +119,7 @@ ${this.settings.preamble}
 \\end{document}`;
 
 		// Render latex
-		return this.renderLatex2SVG(latex_source);
+		return this.renderLatex(latex_source);
 	}
 
 	renderTikzToContainer(source: string, container: HTMLElement) {
@@ -134,12 +134,12 @@ ${this.settings.preamble}
 		})
 	}
 
-	renderLatex2SVG(source: string) {
+	renderLatex(source: string) {
 		// Build latex:
 		//  - create temp folder
 		// 	- write file to temp folder
 		//	- call pdflatex and pdf2svg
-		// 	- load svg file
+		// 	- return img element with an app://local link to the rendered file
 		return new Promise((resolve, reject) => {
 			temp.mkdir('obsidian-tikz', (err: ErrnoException | null, dirPath: string) => {
 				const inputPath = path.join(dirPath, 'input.tex')
@@ -151,10 +151,7 @@ ${this.settings.preamble}
 
 					exec(command, {cwd: dirPath, timeout: this.settings.timeout}, (err: ExecException | null) => {
 						if (err) reject(err);
-						fs.readFile(path.join(dirPath, 'output.svg'), function (err: ErrnoException | null, data: Buffer) {
-							if (err) reject(err)
-							resolve(data.toString());
-						});
+						else resolve(`app://local/${path.join(dirPath, 'output.svg')}`)
 					});
 				});
 			})
@@ -162,7 +159,6 @@ ${this.settings.preamble}
 	}
 
 	onunload() {
-
 	}
 
 	async loadSettings() {
