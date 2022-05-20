@@ -9,8 +9,6 @@ import {basicSetup, EditorState, EditorView} from "@codemirror/basic-setup";
 import {indentWithTab} from "@codemirror/commands"
 import ErrnoException = NodeJS.ErrnoException;
 
-// import {tex} from "@codemirror/lang-tex";
-
 
 interface PluginSettings {
 	latexCommand: string;
@@ -57,51 +55,11 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// tikz code blocks
-		this.registerMarkdownPostProcessor((el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-			// Get code blocks
-			const codeblocks = el.querySelectorAll("pre");
-
-			// Check if we have to render them and then render them
-			for (const block of Array.from(codeblocks)) {
-				const content = ctx.getSectionInfo(block);
-
-				// Skip empty code blocks
-				if (!content) continue;
-
-				// Get code block language
-				const lines = content.text.split('\n').slice(content.lineStart, content.lineEnd);
-				const first_line = lines[0];
-
-				// Check block language. Allow both ```tikz render and ```latex tikz render (for syntax highlighting)
-				if (!first_line.contains('tikz render')) continue;
-
-				// Get tikz code
-				const payload = lines.slice(1).join('\n');
-
-				// Get render mode
-				let renderMode = this.settings.defaultRenderMode;
-				if (first_line.contains('side-by-side')) renderMode = 'side_by_side';
-				if (first_line.contains('image-only')) renderMode = 'image_only';
-
-				// Create the DOM element to render to
-				el.addClass('tikz-render-container');
-				let d: HTMLElement;
-				if (renderMode == 'image_only') {
-					el.innerHTML = '';
-					d = el;
-					d.addClass('tikz-preview', 'tikz-preview-image-only');
-				} else {
-					d = el.createEl('div');
-					d.addClass('tikz-preview', 'tikz-preview-side-by-side');
-				}
-				d.innerHTML = '<div class="tikz-preview-rendering">rendering tikz...</div>';
-
-				// Render!
-				this.renderTikzToContainer(payload, d);
-			}
-		}, 100);
-
+		this.registerMarkdownCodeBlockProcessor('tikz-render', (source, el, ctx) => {
+			el.addClass('tikz-preview', 'tikz-preview-image-only');
+			el.innerHTML = '<div class="tikz-preview-rendering">rendering tikz...</div>';
+			this.renderTikzToContainer(source, el);
+		})
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SettingTab(this.app, this));
@@ -269,16 +227,16 @@ class SettingTab extends PluginSettingTab {
 		outcontainer.innerText = 'Click "TestSettings" to render test image...';
 		outcontainer.addClass('tikz-preview-test');
 		s.addButton(button => button
-				.setButtonText("Test Settings")
-				.onClick(() => {
-					console.log('Testing tikz renderer settings')
-					outcontainer.removeClasses(['tikz-preview-test-ok', 'tikz-preview-test-failed'])
-					outcontainer.innerText = "Rendering tikz..."
-					this.plugin.renderTikzToContainer(OBSIDIAN_LOGO, outcontainer).then(() => {
-						outcontainer.addClass('tikz-preview-test-ok');
-					}).catch(() => {
-						outcontainer.addClass('tikz-preview-test-failed');
-					});
-				}));
+			.setButtonText("Test Settings")
+			.onClick(() => {
+				console.log('Testing tikz renderer settings')
+				outcontainer.removeClasses(['tikz-preview-test-ok', 'tikz-preview-test-failed'])
+				outcontainer.innerText = "Rendering tikz..."
+				this.plugin.renderTikzToContainer(OBSIDIAN_LOGO, outcontainer).then(() => {
+					outcontainer.addClass('tikz-preview-test-ok');
+				}).catch(() => {
+					outcontainer.addClass('tikz-preview-test-failed');
+				});
+			}));
 	}
 }
