@@ -53,6 +53,9 @@ export default class MyPlugin extends Plugin {
 	settings: PluginSettings;
 
 	async onload() {
+		// Add an alias for "tikz" and "tikz-render" so that syntax highlighting works in tikz-render code blocks
+		window.CodeMirror.modeInfo.push({name: "Tikz", mime: "text/x-latex", mode: "stex", alias: ["tikz-render"]},)
+
 		await this.loadSettings();
 
 		this.registerMarkdownCodeBlockProcessor('tikz-render', (source, el, ctx) => {
