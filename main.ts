@@ -5,7 +5,9 @@ import * as path from 'path';
 import {exec, ExecException} from 'child_process';
 import * as temp from 'temp';
 import {keymap} from '@codemirror/view';
-import {basicSetup, EditorState, EditorView} from "@codemirror/basic-setup";
+import {basicSetup} from "codemirror"
+import {EditorState} from "@codemirror/state";
+import {EditorView} from "@codemirror/view";
 import {indentWithTab} from "@codemirror/commands"
 import ErrnoException = NodeJS.ErrnoException;
 
